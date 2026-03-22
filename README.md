@@ -66,6 +66,10 @@ you can also choose to set scale for prices
 .\WeissSchwarzManager.exe -f '..\BCS 2026 Mouvaux Nikke 4 door_4 standby.txt' -c nik -i encore -s 0.7
 ```
 
+## FAQ
+I keep getting this error: **AttributeError: 'NoneType' object has no attribute 'replace'**:\
+Please double check if your file path is correct
+
 ## License
 
 This project is licensed under the Apache-2.0 License - see the LICENSE.md file for details
