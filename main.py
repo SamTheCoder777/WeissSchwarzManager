@@ -1,4 +1,6 @@
 import httpx
+import re
+import argparse
 from selectolax.parser import HTMLParser
 
 class Colors:
@@ -13,20 +15,46 @@ class Colors:
     UNDERLINE = '\033[4m'
     ENDC = '\033[0m' # Reset to default
 
-def get_yuyutei_prices(link_arr):
+class Rarity:
+    playset_rarity = ["RR", "R", "U", "C", "CR"]
+    playset_td = ["TD"]
+
+def read_file(path):
+    try:
+        with open(path, 'r', encoding='utf-8') as file:
+            file_content = file.read()
+        return file_content
+    except FileNotFoundError:
+        print(f"Error: The file '{path}' was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def get_yuyutei_prices(code):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-
-    # Use HTTP/2 for better efficiency and less 'bot-like' behavior
-    with httpx.Client(headers=headers, timeout=1200.0) as client:
+    
+    with httpx.Client(http2=True, headers=headers, timeout=1200.0) as client:
         card_dict = {}
+        page = 1
 
-        for link in link_arr:
+        print(f"{Colors.YELLOW}Searching...{Colors.ENDC}")
+
+        while True:
+            if page == 1:
+                link = f"https://yuyu-tei.jp/sell/ws/s/search?search_word={code}"
+            else:
+                link = f"https://yuyu-tei.jp/sell/ws/s/search?search_word={code}&page={page}"
+
             resp = client.get(link)
             
             if resp.status_code == 200:
                 tree = HTMLParser(resp.text)
+                print(f"{Colors.YELLOW}{link}{Colors.ENDC}")
+                if tree.css_matches("p.m-5.pb-5"):
+                    print(f"{Colors.GREEN}DONE{Colors.ENDC}")
+                    break
                             
                 for card_list in tree.css("div.py-4.cards-list"):
                     rarity = card_list.css_first("span.py-2").text().strip()
@@ -47,16 +75,35 @@ def get_yuyutei_prices(link_arr):
                             stock_status = 0
                         else:
                             stock_status = int(stock_status.split(" ")[0])
-            
-                        
-                        #print(f"Card: {card_id} | Price: {price_text} Yen | Rarity: {rarity} | Name: {card_name} | Stock: {stock_status}")
+        
 
                         card_dict[card_id] = {"rarity": rarity, "price": int(price_text.replace(",","")), "name": card_name, "stock": stock_status}
-            
+
+                page += 1
+            else:
+                break
         return card_dict
+
+def calc_playset(code, scale=1):
+    yuyu_card_dict = get_yuyutei_prices(code)
+
+    playset_price = 0
+    playset_wtd_price = 0
+    for card_id in yuyu_card_dict:
+        if yuyu_card_dict[card_id]["rarity"] in Rarity.playset_rarity:
+            playset_price += yuyu_card_dict[card_id]["price"]*4
+            playset_wtd_price += yuyu_card_dict[card_id]["price"]*4
+        if yuyu_card_dict[card_id]["rarity"] in Rarity.playset_td:
+            playset_wtd_price += yuyu_card_dict[card_id]["price"]*4
+    
+    print(f"With Scale: {scale}")
+    print(f"{Colors.GREEN}------------- PLAYSET -------------{Colors.ENDC}")
+    print(f"Price: {playset_price*scale}")
+    print(f"{Colors.CYAN}------------- PLAYSET WITH TD-------------{Colors.ENDC}")
+    print(f"Price: {playset_wtd_price*scale}")
         
-def calc_deck_price(link_arr, deck_arr, scale=1):
-    yuyu_card_dict = get_yuyutei_prices(link_arr)
+def calc_deck_price(code, deck_arr, scale=1):
+    yuyu_card_dict = get_yuyutei_prices(code)
 
     in_stock = {}
     out_of_stock = {}
@@ -75,10 +122,8 @@ def calc_deck_price(link_arr, deck_arr, scale=1):
                 else:
                     if card_id in out_of_stock:
                             out_of_stock[card_id]["count"] += 1
-                            yuyu_card_dict[card_id]["stock"] -= 1
                     else:
                         out_of_stock[card_id] = {"count": 1, "price": yuyu_card_dict[card_id]["price"]}
-                        yuyu_card_dict[card_id]["stock"] -= 1
             else:
                 if card_id in in_stock:
                     in_stock[card_id]["count"] += 1
@@ -89,76 +134,59 @@ def calc_deck_price(link_arr, deck_arr, scale=1):
                 missing_card.append(card_id)
 
     total_price = 0
-        
+    total_price_wo = 0
+
     print(f"{Colors.GREEN}------------- IN STOCK -------------{Colors.ENDC}")
     for card_id, data in in_stock.items():
         print(f"{yuyu_card_dict[card_id]['name']} ({card_id}) - rarity: {yuyu_card_dict[card_id]['rarity']} | count: {data['count']} | total price: {data['price'] * data['count']} Yen")
         total_price += data["price"]*data["count"]
     print(f"{Colors.RED}------------- OUT OF STOCK -------------{Colors.ENDC}")
     for card_id, data in out_of_stock.items():
-        print(f"{yuyu_card_dict[card_id]['name']} ({card_id}) - rarity: {yuyu_card_dict[card_id]['rarity']} | count: {data['count']}")
-        total_price += data["price"]*data["count"]
+        print(f"{yuyu_card_dict[card_id]['name']} ({card_id}) - rarity: {yuyu_card_dict[card_id]['rarity']} | count: {data['count']} | total price: {data['price'] * data['count']} Yen")
+        total_price_wo += data["price"]*data["count"]
     print(f"{Colors.YELLOW}------------- MISSING CARDS -------------{Colors.ENDC}")
     for card_id in missing_card:
         print(card_id)
-    print(f"{Colors.BLUE}Grand Total: {total_price} Yen{Colors.ENDC}")
 
+    print(f"{Colors.GREEN}IN STOCK TOTAL: {total_price} Yen{Colors.ENDC}")
+    print(f"{Colors.RED}OUT OF STOCK TOTAL: {total_price_wo} Yen{Colors.ENDC}")
+    print(f"{Colors.CYAN}Grand Total: {total_price+total_price_wo} Yen{Colors.ENDC}")
 
+    if scale != 1:
+        print(f"{Colors.YELLOW}(Scale Adjusted) IN STOCK Grand TOTAL: {total_price * scale} Yen{Colors.ENDC}")
+        print(f"{Colors.YELLOW}(Scale Adjusted) OUT OF STOCK Grand TOTAL: {total_price_wo * scale} Yen{Colors.ENDC}")
 
-#card_dict = get_yuyutei_prices("hol")
+def parse_decklist(text):
+    pattern = r"([A-Z0-9/]+-[A-Z0-9]+)\s+(\d+)"
+    
+    matches = re.findall(pattern, text)
+    
+    final_list = []
+    for code, count in matches:
+        for _ in range(int(count)):
+            final_list.append(code)
+            
+    return final_list
 
-requested_card = """HOL/WE44-11
-HOL/WE44-11
-HOL/W91-E010
-HOL/W91-E010
-HOL/W91-E010
-HOL/WE45-T04
-HOL/WE45-T16
-HOL/WE45-T16
-HOL/WE45-T16
-HOL/WE45-T16
-HOL/WE44-10
-HOL/WE44-10
-HOL/WE45-T15
-HOL/WE45-T03
-HOL/WE45-T03
-HOL/WE45-T03
-HOL/WE45-T03
-HOL/WE45-T07
-HOL/WE45-T07
-HOL/WE45-T07
-HOL/WE45-T07
-HOL/WE45-T14
-HOL/WE45-T14
-HOL/W104-018
-HOL/W104-018
-HOL/W104-001
-HOL/W104-001
-HOL/WE45-T01
-HOL/WE45-T01
-HOL/WE44-26
-HOL/WE44-27
-HOL/W104-075
-HOL/W104-075
-HOL/W104-075
-HOL/W104-075
-HOL/W104-125
-HOL/W104-125
-HOL/W104-125
-HOL/WE45-T12
-HOL/WE45-T12
-HOL/WE45-T12
-HOL/WE45-T12
-HOL/WE45-T17
-HOL/WE45-T17
-HOL/WE45-T17
-HOL/WE45-T17
-HOL/WE45-T05
-HOL/WE45-T05
-HOL/WE45-T05
-HOL/WE45-T05"""
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--import_type", dest="import_type", choices=["codes", "encore"],
+                    help="card list format (code or blake)\nCodes: file with card codes separated by new lines\encore: Card deck txt file exported and saved from encoredecks.com")
+parser.add_argument("-f", "--file", type=str, help="card list file path")
+parser.add_argument("-c", "--code", type=str, required=True, help="Set code")
+parser.add_argument("-s", "--scale", type=int, default=1, help="set scale to the price")
+parser.add_argument("-p", "--playset", action="store_true", help="calculate playset price")
 
-links = ["https://yuyu-tei.jp/sell/ws/s/hol#entry","https://yuyu-tei.jp/sell/ws/s/holtd#entry","https://yuyu-tei.jp/sell/ws/s/holpb#entry","https://yuyu-tei.jp/sell/ws/s/hol2.0#entry","https://yuyu-tei.jp/sell/ws/s/holpb2.0#entry","https://yuyu-tei.jp/sell/ws/s/holtd2.0#entry"]
-requested_card = requested_card.replace("-E","-").replace("-TE","-T").split("\n")
-calc_deck_price(links, requested_card)
-#print(requested_card)
+args = parser.parse_args()
+
+if args.playset:
+    calc_playset(args.code,args.scale)
+else:
+    if args.import_type == "codes":
+        content = read_file(args.file)
+        requested_cards = content.replace("-E", "-").replace("-TE", "-T").split("\n")
+        calc_deck_price(args.code, requested_cards, scale=args.scale)
+    elif args.import_type == "encore":
+        content = read_file(args.file)
+        requested_cards = parse_decklist(content)
+        requested_cards = [item.replace("-E", "-").replace("-TE", "-T") for item in requested_cards]
+        calc_deck_price(args.code, requested_cards, scale=args.scale)
