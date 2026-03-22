@@ -1,10 +1,8 @@
-# Project Title
-
-Weiss Schwarz Manager
+# Weiss Schwarz Manager
 
 ## Description
 
-Simple tool for quickly getting Japanese deck prices / playset prices from yuyutei
+Simple tool for quickly getting Japanese deck prices / playset prices from yuyutei\
 Also works for single card
 
 ## Getting Started
