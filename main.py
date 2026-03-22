@@ -98,9 +98,9 @@ def calc_playset(code, scale=1):
     
     print(f"With Scale: {scale}")
     print(f"{Colors.GREEN}------------- PLAYSET -------------{Colors.ENDC}")
-    print(f"Price: {playset_price*scale}")
+    print(f"Price: {playset_price*scale} Yen")
     print(f"{Colors.CYAN}------------- PLAYSET WITH TD-------------{Colors.ENDC}")
-    print(f"Price: {playset_wtd_price*scale}")
+    print(f"Price: {playset_wtd_price*scale} Yen")
         
 def calc_deck_price(code, deck_arr, scale=1):
     yuyu_card_dict = get_yuyutei_prices(code)
@@ -173,7 +173,7 @@ parser.add_argument("-i", "--import_type", dest="import_type", choices=["codes",
                     help="card list format (code or blake)\nCodes: file with card codes separated by new lines\encore: Card deck txt file exported and saved from encoredecks.com")
 parser.add_argument("-f", "--file", type=str, help="card list file path")
 parser.add_argument("-c", "--code", type=str, required=True, help="Set code")
-parser.add_argument("-s", "--scale", type=int, default=1, help="set scale to the price")
+parser.add_argument("-s", "--scale", type=float, default=1, help="set scale to the price")
 parser.add_argument("-p", "--playset", action="store_true", help="calculate playset price")
 
 args = parser.parse_args()
