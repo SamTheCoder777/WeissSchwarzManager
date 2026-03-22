@@ -64,6 +64,8 @@ you can also choose to set scale for prices
 .\WeissSchwarzManager.exe -f '.\codes.txt' -c nik -i codes -s 0.7
 
 .\WeissSchwarzManager.exe -f '..\BCS 2026 Mouvaux Nikke 4 door_4 standby.txt' -c nik -i encore -s 0.7
+
+.\WeissSchwarzManager.exe -c nik -p -s 0.7
 ```
 
 ## FAQ
