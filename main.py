@@ -101,6 +101,20 @@ def calc_playset(code, scale=1):
     print(f"Price: {playset_price*scale} Yen")
     print(f"{Colors.CYAN}------------- PLAYSET WITH TD-------------{Colors.ENDC}")
     print(f"Price: {playset_wtd_price*scale} Yen")
+
+def calc_single_price(code, card, scale):
+    yuyu_card_dict = get_yuyutei_prices(code)
+    matches = [key for key in yuyu_card_dict if card in key]
+
+    for match in matches:
+        stock = ""
+        if yuyu_card_dict[match]['stock'] == -1:
+            stock = "◯"
+        elif yuyu_card_dict[match]['stock'] == 0:
+            stock = "X"
+        else:
+            stock = str(yuyu_card_dict[match]['stock'])
+        print(f"Rarity: {yuyu_card_dict[match]['rarity']} | Price: {yuyu_card_dict[match]['price']*scale} Yen | Stock: {stock}")
         
 def calc_deck_price(code, deck_arr, scale=1):
     yuyu_card_dict = get_yuyutei_prices(code)
@@ -173,12 +187,15 @@ parser.add_argument("-i", "--import_type", dest="import_type", choices=["codes",
                     help="card list format (code or blake)\nCodes: file with card codes separated by new lines\encore: Card deck txt file exported and saved from encoredecks.com")
 parser.add_argument("-f", "--file", type=str, help="card list file path")
 parser.add_argument("-c", "--code", type=str, required=True, help="Set code")
+parser.add_argument("-sc", "--singlecard", type=str, help="Single card code")
 parser.add_argument("-s", "--scale", type=float, default=1, help="set scale to the price")
 parser.add_argument("-p", "--playset", action="store_true", help="calculate playset price")
 
 args = parser.parse_args()
 
-if args.playset:
+if args.singlecard:
+    calc_single_price(args.code, args.singlecard, args.scale)
+elif args.playset:
     calc_playset(args.code,args.scale)
 else:
     if args.import_type == "codes":
