@@ -62,6 +62,9 @@ def get_yuyutei_prices(code):
                     for card in card_list.css("div.col-md"):
                         
                         card_id = card.css_first("div.card-product span.my-2").text().strip()
+
+                        if card_id.split("/")[0].lower() != code.lower():
+                            continue
                         
                         price_text = card.css_first("div.card-product strong.text-end").text().strip().split(" ")[0]
 
